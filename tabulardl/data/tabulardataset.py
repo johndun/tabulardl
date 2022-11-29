@@ -13,8 +13,6 @@ class TabularDataset:
 
     Each tensor should have identical shapes in the 1st dimension.
 
-    Useful for RL use-cases where samples may have nested state and next-state inputs.
-
     Parameters:
         data: A dictionary (with possibly nested string keys) of tensors with sample indexed in the
             first dimension.
