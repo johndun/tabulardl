@@ -5,7 +5,7 @@ from typing import Dict, Optional, Union, List
 import numpy as np
 import torch
 
-from tabulardl.data.features.base import Feature, DataType
+from .base import Feature, DataType
 
 
 class ValueNotFoundError(Exception):
@@ -29,7 +29,7 @@ class CategoricalFeature(Feature):
             to initialize this parameters.
 
     """
-    data_type: DataType = DataType.CATEGORICAL
+    type: DataType = DataType.CATEGORICAL
     max_vocab_size: int = 10000
     low_count_threshold: Optional[int] = 0
     unknown_value: Union[str, int] = '<UNKNOWN>'
@@ -83,3 +83,22 @@ class CategoricalFeature(Feature):
             data = [data]
         # pylint: disable=[E1101]
         return torch.LongTensor(np.array([self.transform_single(y) for y in data]))
+
+    def __repr__(self):
+        key_repr = (
+            f'{self.key}'
+            if isinstance(self.key, list) else
+            '"' + self.key + '"'
+        )
+        string = [
+            'CategoricalFeature(',
+            f'    id="{self.id}"',
+            f'    key={key_repr}',
+        ]
+        if self.is_fit:
+            string += [
+                f'    dict_size={self.dictionary_size}',
+                f'    dict={list(self.value_map.items())[:5]}',
+            ]
+        string += [')']
+        return '\n'.join(string)

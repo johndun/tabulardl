@@ -2,24 +2,19 @@
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
+from typing import List, Union
 
 import torch
 
 
-class FeatureTransformBeforeFitError(Exception):
-    """Exception raised when a Feature transform method is called before the fit method."""
-
-
 class DataType(Enum):
-    """Enumerates data types for individual components (columns) of a dataset.
-
-    See corresponding Feature subclasses for details.
-
-    """
     NUMERIC = 'numeric'
     CATEGORICAL = 'categorical'
-    CATEGORICAL_ARRAY  ='categorical_array'
+    CATEGORICAL_ARRAY = 'categorical_array'
+
+
+class FeatureTransformBeforeFitError(Exception):
+    """Exception raised when a Feature transform method is called before the fit method."""
 
 
 @dataclass
@@ -30,7 +25,9 @@ class Feature:
         data_type: DataType object that describes the type of data.
         is_fit: If not true, `transform_raw_data` method cannot be used.
     """
-    data_type: DataType
+    id: str
+    key: Union[str, List]
+    type: DataType
     is_fit: bool = False
 
     def _fit_data_transformer(self, data: List):
