@@ -33,15 +33,9 @@ class CategoricalArrayFeature(CategoricalFeature):
 
     def transform_single(self, data):
         data = data if data is not None else []
+        data = [x for x in data if x in self.value_map]
         data = [data[idx] if idx < len(data) else self.pad_value for idx in range(self.max_len)]
-        return np.array([
-            self.value_map[
-                x if x in self.value_map else
-                self.missing_value if x is None else
-                self.unknown_value
-            ]
-            for x in (data or [])
-        ])
+        return np.array([self.value_map[x] for x in data])
 
     def __repr__(self):
         key_repr = (

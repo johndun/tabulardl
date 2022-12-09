@@ -31,6 +31,8 @@ class TransposedRawData:
         Union['TransposedRawData', List[str], List[int], List[float], List[List[str]], ...
     ]
     """
+    def __getitem__(self, idx):
+        pass
 
 
 class BaseRawData:
@@ -54,7 +56,7 @@ class BaseDataSchema:
         pickle.dump(self, open(f'{path}/data_schema.pickle', 'wb'))
 
     @staticmethod
-    def load_from(path: str) -> 'BaseDataSchema':
+    def load_from(path: str):
         return pickle.load(open(f'{path}/data_schema.pickle', 'rb'))
 
     @staticmethod

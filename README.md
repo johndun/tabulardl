@@ -19,9 +19,5 @@ coverage run -m pytest && coverage report -m
 
 ```
 
-## TODOs
-
-*  Missing data in numeric arrays. Currently only works for scalar numeric features.
-
 * SASRec gitub. Contains links and data for teh . https://github.com/kang205/SASRec
 * CARCA: https://arxiv.org/abs/2204.06519v1

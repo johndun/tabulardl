@@ -12,30 +12,29 @@ from experiments import BaseTrainer, SplitsDataset
 from tabularencoder import device_move_nested
 
 
-class ShallowModel(nn.Module):
+class TransformerModel(nn.Module):
     def __init__(
             self,
+            transformer: nn.TransformerEncoder,
             src_item_encoder: nn.Module,
             tgt_item_encoder: nn.Module,
-            interaction_encoder: Optional[nn.Module] = None
+            interaction_encoder: nn.Module,
     ):
         super().__init__()
         self.src_item_encoder = src_item_encoder
         self.tgt_item_encoder = tgt_item_encoder
         self.interaction_encoder = interaction_encoder
+        self.transformer = transformer
 
-    def forward(self, interaction, item, target, neg_targets, **_):
-        src_embd = self.src_item_encoder(**item)
+    def forward(self, src_interactions, src_items, tgt_items, neg_items, mask, **_):
+        src_embd = self.src_item_encoder(**src_items)
         if self.interaction_encoder:
-            src_embd += self.interaction_encoder(**interaction)
-        tgt_embd = torch.concat(
-            (
-                self.tgt_item_encoder(**target).unsqueeze(1),
-                self.tgt_item_encoder(**neg_targets)
-            ),
-            dim=1
-        )
-        return src_embd, tgt_embd
+            src_embd += self.interaction_encoder(**src_interactions)
+        causal_mask = nn.Transformer.generate_square_subsequent_mask(src_embd.shape[1])
+        self.transformer(src_embd, mask=causal_mask, src_key_padding_mask=mask)
+        tgt_embd = self.tgt_item_encoder(**tgt_items)
+        neg_embd = self.tgt_item_encoder(**neg_items)
+        return src_embd, tgt_embd, neg_embd
 
     def save_to(self, path):
         torch.save(self, f'{path}/model.torch')
@@ -61,13 +60,14 @@ class Trainer(BaseTrainer):
         torch_device = torch.device(self.torch_device)
         total_loss = 0
         total_samples = 0
-        for batch in loader:
+        for batch in tqdm(loader):
             optimizer.zero_grad()
-            src_embedding, tgt_embeddings = model(**device_move_nested(batch, torch_device))
-            batch_size = src_embedding.shape[0]
-            tgt_embedding = tgt_embeddings[:, 0, :]
-            neg_tgt_embedding = tgt_embeddings[:, 1, :]
-            loss = objective(src_embedding, tgt_embedding, neg_tgt_embedding)
+            src_embd, tgt_embd, neg_embd = model(**device_move_nested(batch, torch_device))
+            src_embd = src_embd.view(-1, src_embd.shape[-1])
+            tgt_embd = tgt_embd.view(-1, src_embd.shape[-1])
+            neg_embd = neg_embd.view(-1, src_embd.shape[-1])
+            batch_size = src_embd.shape[0]
+            loss = objective(src_embd, tgt_embd, neg_embd)
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
@@ -81,12 +81,12 @@ class Trainer(BaseTrainer):
         ks = [1, 5, 10]
         hits = [0, 0, 0]
         ndcgs = [0, 0, 0]
-        for batch in loader:
+        for batch in tqdm(loader):
             with torch.no_grad():
-                src_embedding, tgt_embeddings = model(**device_move_nested(batch, torch_device))
-                scores = torch.bmm(
-                    src_embedding.unsqueeze(1),
-                    tgt_embeddings.transpose(1, 2))[:, 0, :]
+                src_embd, tgt_embd, neg_embd = model(**device_move_nested(batch, torch_device))
+                src_embd = src_embd[:, -1:, :]
+                tgt_embd = torch.concat((tgt_embd, neg_embd), dim=1)
+                scores = torch.bmm(src_embd, tgt_embd.transpose(1, 2))[:, 0, :]
                 total += scores.shape[0]
                 hit_cnts, ndcg = _score_batch(scores, ks, torch_device)
                 for idx in range(len(ks)):
